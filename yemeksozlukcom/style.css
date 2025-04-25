@@ -1,0 +1,314 @@
+/*
+Theme Name: Yemek Sözlük
+Author: Fatih Bican
+Version: 1.0
+*/
+body {
+  font-family: Arial,sans-serif;
+  background: #fafafa;
+  color: #222;
+  margin: 0;
+  padding: 0;
+}
+.header, .footer {
+  background: #c72828;
+  color: #fff;
+  padding: 20px 0;
+  text-align: center;
+}
+.header nav {
+  margin-top:10px;
+}
+.header nav a {
+  color: #fff;
+  margin: 0 8px;
+  font-weight: bold;
+  text-decoration: none;
+}
+.header nav a:hover,.header nav .active {
+  text-decoration: underline;
+}
+.container {
+  width: 96%;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+.main-content.home-main {
+  margin-top: 0;
+}
+.home-hero-ad {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+.home-grid {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+.home-maincol {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.home-sidebar {
+  width: 330px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom:13px;
+}
+.block-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+.more-link {
+  color: #c72828;
+  font-weight: bold;
+  font-size: 0.99rem;
+  text-decoration: none;
+}
+.block-recipes-list, .block-blog-list {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 22px;
+}
+.recipe-card, .blog-card {
+  background: #fff;
+  border-radius: 9px;
+  box-shadow: 0 1px 8px #0001;
+  padding: 0 0 12px 0;
+  transition: box-shadow .1s;
+}
+.recipe-card:hover, .blog-card:hover {
+  box-shadow:0 2px 12px #0002;
+}
+.recipe-card img, .blog-card img {
+  width: 100%;
+  height: 164px;
+  object-fit: cover;
+  border-radius: 9px 9px 0 0;
+}
+.recipe-card .tarif-cat {
+  display: inline-block;
+  background: #c72828;
+  color: #fff;
+  padding:2px 12px;
+  font-size: 0.88em;
+  border-radius: 7px;
+  margin: 10px 0 8px 0;
+}
+.recipe-card .rcard-title, .blog-card .blog-title {
+  display: block;
+  color: #c72828;
+  font-size: 1.03rem;
+  font-weight: bold;
+  margin: 10px 0 3px 0;
+  text-decoration: none;
+}
+.recipe-card .rcard-title:hover, .blog-card .blog-title:hover {
+  text-decoration: underline;
+}
+.rcard-meta, .blog-meta {
+  font-size: 0.92em;
+  color: #888;
+}
+.rcard-meta .fa, .blog-meta .fa {
+  margin-right: 4px;
+}
+.homepage-about {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 8px #0001;
+  margin: 40px 0 30px 0;
+  padding: 24px 24px 14px 24px;
+  font-size: 1.09em;
+  line-height: 1.6;
+}
+.homepage-about h2 {
+  margin-top: 0;
+  font-size: 1.2em;
+  font-weight: bold;
+}
+.sidebar-block {
+  background: #fff;
+  padding: 16px 18px;
+  border-radius: 10px;
+  box-shadow: 0 1px 6px #0002;
+  margin-bottom: 12px;
+}
+.popular-recipes ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.popular-recipes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.popular-recipes img {
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 7px;
+}
+.pop-recipe-info {
+  flex: 1;
+}
+.pop-title {
+  font-size: 1.01em;
+  color: #c72828;
+  font-weight: bold;
+  display: block;
+  text-decoration: none;
+}
+.pop-title:hover { text-decoration: underline;}
+.pop-author {
+  font-size: 0.91em;
+  color: #888;
+}
+.sidebar-ad img {
+  width: 100%;
+  border-radius: 7px;
+  margin: 10px 0;
+  background: #eee;
+}
+.sidebar-cta {
+  text-align: center;
+}
+.sidebar-cta .cta-btn {
+  display: inline-block;
+  color: #fff;
+  background: #c72828;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  margin-top: 8px;
+  text-decoration: none;
+}
+.sidebar-cta .cta-btn:hover { background: #a41c1c;}
+.sidebar-categories .cat-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.sidebar-categories .cat-tags a {
+  background: #f7e7e7;
+  color: #c72828;
+  padding: 2px 11px;
+  border-radius: 7px;
+  text-decoration: none;
+  font-size: 0.95em;
+  font-weight: 500;
+}
+.sidebar-categories .cat-tags a:hover {
+  background: #c72828;
+  color: #fff;
+}
+.footer {
+  margin-top: 50px;
+  background: #222;
+  color: #fff;
+  text-align: center;
+  padding: 32px 0 18px 0;
+  font-size: 1.03em;
+}
+.footer .footer-nav {
+  margin: 18px 0 10px 0;
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+.footer .footer-nav a {
+  color: #fff;
+  text-decoration: none;
+  margin: 0 12px;
+  font-weight: 500;
+}
+.footer .footer-nav a:hover {
+  text-decoration: underline;
+}
+.footer .footer-social {
+  margin-bottom: 18px;
+}
+.footer .footer-social a {
+  display: inline-block;
+  color: #fff;
+  margin: 0 7px;
+  font-size: 1.24em;
+  transition: color .2s;
+}
+.footer .footer-social a:hover { color: #c72828; }
+.fav-btn {
+  display: inline-block;
+  color: #aaa;
+  font-size: 1.26em;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: color .2s;
+  vertical-align: middle;
+}
+.fav-btn.fav-active,
+.fav-btn:hover {
+  color: #c72828;
+  text-shadow: 0 0 5px #ffe3e3;
+}
+.fav-btn.fav-login {
+  color: #bbb;
+  filter: grayscale(0.7);
+  cursor: not-allowed;
+}
+.ys-advanced-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 25px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 18px 14px;
+  box-shadow: 0 1px 6px #0001;
+}
+.ys-advanced-search input,
+.ys-advanced-search select {
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 1px solid #bbb;
+  font-size: 1em;
+  margin-right: 4px;
+}
+.ys-advanced-search button {
+  background: #c72828;
+  color: #fff;
+  border: none;
+  padding: 7px 18px;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.ys-advanced-search button:hover { background: #a41c1c;}
+@media (max-width: 1090px) {
+  .home-grid { flex-direction: column; }
+  .home-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; gap: 18px;}
+  .sidebar-block { width: 320px; }
+}
+@media (max-width: 900px) {
+  .block-recipes-list, .block-blog-list { grid-template-columns: repeat(2,1fr);}
+  .profile-tarifler .block-recipes-list { grid-template-columns: repeat(2,1fr);}
+}
+@media (max-width: 600px) {
+  .home-sidebar, .sidebar-block { width: 100%; }
+  .block-recipes-list, .block-blog-list { grid-template-columns: 1fr;}
+  .container { padding: 0 6px; }
+  .profile-tarifler .block-recipes-list { grid-template-columns: 1fr;}
+  .profile-main { padding: 15px 3vw;}
+  .profile-header { flex-direction: column; gap: 15px;}
+}
