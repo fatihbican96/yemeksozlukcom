@@ -173,12 +173,27 @@
     <div class="recipe-comments" style="margin-top:38px;">
         <h3>Yorumlar</h3>
         <?php
-        if (comments_open() || get_comments_number()) {
-            comments_template();
-        } else {
-            echo '<div class="no-comments">Yorumlar kapalı.</div>';
-        }
+        comments_template();
         ?>
     </div>
 
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org/",
+      "@type": "Recipe",
+      "name": "<?php the_title(); ?>",
+      "image": "<?php echo esc_url(get_the_post_thumbnail_url(get_the_ID(), 'large')); ?>",
+      "author": {
+        "@type": "Person",
+        "name": "<?php the_author(); ?>"
+      },
+      "datePublished": "<?php echo get_the_date('c'); ?>",
+      "description": "<?php echo esc_attr(get_post_meta(get_the_ID(), 'tarif_aciklama', true)); ?>",
+      "prepTime": "PT<?php echo intval(get_post_meta(get_the_ID(),'hazir_sure',true)); ?>M",
+      "cookTime": "PT<?php echo intval(get_post_meta(get_the_ID(),'pisirme_sure',true)); ?>M",
+      "recipeYield": "<?php echo esc_attr(get_post_meta(get_the_ID(),'kac_kisilik',true)); ?>",
+      "recipeIngredient": <?php echo json_encode(get_post_meta(get_the_ID(), 'malzemeler', true)); ?>,
+      "recipeInstructions": <?php echo json_encode(get_post_meta(get_the_ID(), 'adimlar', true)); ?>
+    }
+    </script>
 </article>

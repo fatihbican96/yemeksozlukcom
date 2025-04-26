@@ -5,5 +5,6 @@ if(get_post_type() == 'tarif'):
 else:
     the_content();
 endif;
+comments_template();
 get_footer();
 ?>

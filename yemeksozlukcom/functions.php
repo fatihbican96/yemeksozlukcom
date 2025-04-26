@@ -1,4 +1,8 @@
 <?php
+require_once(ABSPATH . 'wp-admin/includes/image.php');
+require_once(ABSPATH . 'wp-admin/includes/file.php');
+require_once(ABSPATH . 'wp-admin/includes/media.php');
+
 add_theme_support('title-tag');
 add_theme_support('post-thumbnails');
 add_theme_support('automatic-feed-links');
@@ -20,7 +24,7 @@ add_action('init', function() {
         'public' => true,
         'has_archive' => true,
         'rewrite' => array('slug' => 'tarif'),
-        'supports' => array('title', 'editor', 'thumbnail', 'author', 'custom-fields'),
+        'supports' => array('title', 'editor', 'thumbnail', 'author', 'custom-fields', 'comments'),
         'show_in_rest' => true,
     ));
     register_taxonomy('yemek_turu', ['tarif'], array(
@@ -221,8 +225,9 @@ add_shortcode('tarif_ekle', function() {
         $adimlar = array_filter(array_map('sanitize_text_field', $_POST['adimlar'] ?? []));
         $puf = sanitize_textarea_field($_POST['puf']);
         $video = sanitize_text_field($_POST['video']);
+        $zorluk = sanitize_text_field($_POST['zorluk']);
 
-        if (!$tarif_adi || !$giris || !$kapak_aciklama || !$kac_kisilik || !$hazir_sure || !$pisirme_sure || empty($malzemeler) || empty($adimlar)) {
+        if (!$tarif_adi || !$giris || !$kapak_aciklama || !$kac_kisilik || !$hazir_sure || !$pisirme_sure || empty($malzemeler) || empty($adimlar) || !$zorluk) {
             $msg = '<div class="form-error">Lütfen tüm zorunlu alanları doldurun.</div>';
         } else {
             $post_id = wp_insert_post([
@@ -240,9 +245,22 @@ add_shortcode('tarif_ekle', function() {
                     'malzemeler' => $malzemeler,
                     'puf' => $puf,
                     'video' => $video,
+                    'zorluk' => $zorluk,
                 ]
             ]);
+
             if ($post_id && !is_wp_error($post_id)) {
+                require_once(ABSPATH . 'wp-admin/includes/image.php');
+                require_once(ABSPATH . 'wp-admin/includes/file.php');
+                require_once(ABSPATH . 'wp-admin/includes/media.php');
+                if (!empty($_FILES['tarif_gorsel']['name'])) {
+                    $uploaded = media_handle_upload('tarif_gorsel', $post_id);
+                    if (is_wp_error($uploaded)) {
+                        $msg = '<div class="form-error">Görsel yüklenemedi: ' . $uploaded->get_error_message() . '</div>';
+                    } else {
+                        set_post_thumbnail($post_id, $uploaded);
+                    }
+                }
                 $msg = '<div class="form-success">Tarifiniz gönderildi! Editör onayından sonra yayınlanacaktır.</div>';
                 $_POST = [];
             } else {
@@ -299,6 +317,14 @@ add_shortcode('tarif_ekle', function() {
         </label><br><br>
         <label>Video Linki (varsa):<br>
             <input type="url" name="video" placeholder="YouTube/Instagram URL" value="<?php echo esc_attr($_POST['video'] ?? ''); ?>">
+        </label><br><br>
+        <label>Zorluk Derecesi: <span style="color:#c72828">*</span>
+            <select name="zorluk" required>
+                <option value="">Seçiniz</option>
+                <option value="Kolay" <?php selected($_POST['zorluk'] ?? '', 'Kolay'); ?>>Kolay</option>
+                <option value="Orta" <?php selected($_POST['zorluk'] ?? '', 'Orta'); ?>>Orta</option>
+                <option value="Zor" <?php selected($_POST['zorluk'] ?? '', 'Zor'); ?>>Zor</option>
+            </select>
         </label><br><br>
         <button type="submit" name="ys_tarif_ekle" style="font-size:1.1em;padding:10px 26px;">Tarifi Gönder</button>
     </form>
@@ -450,7 +476,40 @@ add_action('wp_footer', function(){
     <?php
 });
 
-// ... önceki kodlar burada ...
+// Meta kutusu ekle
+function ys_meta_box_ekle() {
+    add_meta_box('ys_meta', 'SEO Ayarları', 'ys_meta_box_icerik', ['post', 'page', 'tarif'], 'normal', 'high');
+}
+add_action('add_meta_boxes', 'ys_meta_box_ekle');
+
+// Meta kutusu içeriği
+function ys_meta_box_icerik($post) {
+    $meta_title = get_post_meta($post->ID, '_ys_meta_title', true);
+    $meta_desc = get_post_meta($post->ID, '_ys_meta_desc', true);
+    $meta_keys = get_post_meta($post->ID, '_ys_meta_keys', true);
+    ?>
+    <label>Meta Başlığı:</label><br>
+    <input type="text" name="ys_meta_title" value="<?php echo esc_attr($meta_title); ?>" style="width:100%;"><br><br>
+    <label>Meta Açıklaması:</label><br>
+    <textarea name="ys_meta_desc" rows="2" style="width:100%;"><?php echo esc_textarea($meta_desc); ?></textarea><br><br>
+    <label>Anahtar Kelimeler (virgülle ayırın):</label><br>
+    <input type="text" name="ys_meta_keys" value="<?php echo esc_attr($meta_keys); ?>" style="width:100%;">
+    <?php
+}
+
+// Meta veriyi kaydet
+function ys_meta_box_kaydet($post_id) {
+    if (array_key_exists('ys_meta_title', $_POST)) {
+        update_post_meta($post_id, '_ys_meta_title', sanitize_text_field($_POST['ys_meta_title']));
+    }
+    if (array_key_exists('ys_meta_desc', $_POST)) {
+        update_post_meta($post_id, '_ys_meta_desc', sanitize_textarea_field($_POST['ys_meta_desc']));
+    }
+    if (array_key_exists('ys_meta_keys', $_POST)) {
+        update_post_meta($post_id, '_ys_meta_keys', sanitize_text_field($_POST['ys_meta_keys']));
+    }
+}
+add_action('save_post', 'ys_meta_box_kaydet');
 
 // Soru-Cevap Sistemi
 add_shortcode('ys_soru_cevap', function() {
@@ -663,3 +722,839 @@ add_shortcode('ys_arama_formu', function() {
 
     return ob_get_clean();
 });
+
+// Tarif Ekleme Shortcode
+function tarif_ekle_schema_shortcode() {
+    if (!is_user_logged_in()) {
+        return '<p>Tarif gönderebilmek için giriş yapmalısınız.</p>';
+    }
+
+    $msg = '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ys_tarif_gonder'])) {
+        $baslik = sanitize_text_field($_POST['tarif_baslik']);
+        $aciklama = sanitize_textarea_field($_POST['tarif_aciklama']);
+        $kategori = intval($_POST['yemek_turu']);
+        $porsiyon = intval($_POST['porsiyon']);
+        $hazir_sure = intval($_POST['hazir_sure']);
+        $pisirme_sure = intval($_POST['pisirme_sure']);
+        $malzemeler = array_filter(array_map('sanitize_text_field', $_POST['malzemeler'] ?? []));
+        $adimlar = array_filter(array_map('sanitize_text_field', $_POST['adimlar'] ?? []));
+        $puf = sanitize_textarea_field($_POST['puf']);
+        $video = sanitize_text_field($_POST['video']);
+        $zorluk = sanitize_text_field($_POST['zorluk']);
+
+        if (!$baslik || !$aciklama || !$kategori || !$porsiyon || !$hazir_sure || !$pisirme_sure || empty($malzemeler) || empty($adimlar) || !$zorluk) {
+            $msg = '<div class="form-error">Lütfen tüm zorunlu alanları doldurun.</div>';
+        } else {
+            $post_id = wp_insert_post([
+                'post_type' => 'tarif',
+                'post_title' => $baslik,
+                'post_content' => implode("\n", $adimlar),
+                'post_status' => 'pending',
+                'post_author' => get_current_user_id(),
+                'meta_input' => [
+                    'tarif_aciklama' => $aciklama,
+                    'porsiyon' => $porsiyon,
+                    'hazir_sure' => $hazir_sure,
+                    'pisirme_sure' => $pisirme_sure,
+                    'malzemeler' => $malzemeler,
+                    'puf' => $puf,
+                    'video' => $video,
+                    'zorluk' => $zorluk,
+                ]
+            ]);
+            if ($post_id && !is_wp_error($post_id)) {
+                wp_set_object_terms($post_id, $kategori, 'yemek_turu');
+                require_once(ABSPATH . 'wp-admin/includes/image.php');
+                require_once(ABSPATH . 'wp-admin/includes/file.php');
+                require_once(ABSPATH . 'wp-admin/includes/media.php');
+                if (!empty($_FILES['tarif_gorsel']['name'])) {
+                    $uploaded = media_handle_upload('tarif_gorsel', $post_id);
+                    if (!is_wp_error($uploaded)) {
+                        set_post_thumbnail($post_id, $uploaded);
+                    }
+                }
+                $msg = '<div class="form-success">Tarifiniz gönderildi! Editör onayından sonra yayınlanacaktır.</div>';
+                $_POST = [];
+            } else {
+                $msg = '<div class="form-error">Bir hata oluştu. Lütfen tekrar deneyin.</div>';
+            }
+        }
+    }
+
+    $terms = get_terms(['taxonomy'=>'yemek_turu','hide_empty'=>false]);
+    ob_start();
+    ?>
+    <form method="post" class="tarif-form" enctype="multipart/form-data" itemscope itemtype="https://schema.org/Recipe">
+        <?php echo $msg; ?>
+        <label>Tarif Başlığı: <span style="color:#c72828">*</span>
+            <input type="text" name="tarif_baslik" maxlength="120" required value="<?php echo esc_attr($_POST['tarif_baslik'] ?? ''); ?>" itemprop="name">
+        </label>
+        <label>Tarif Açıklaması: <span style="color:#c72828">*</span>
+            <textarea name="tarif_aciklama" maxlength="1000" required itemprop="description"><?php echo esc_textarea($_POST['tarif_aciklama'] ?? ''); ?></textarea>
+        </label>
+        <label>Yemek Türü: <span style="color:#c72828">*</span>
+            <select name="yemek_turu" required>
+                <option value="">Seçiniz</option>
+                <?php foreach ($terms as $term): ?>
+                    <option value="<?php echo esc_attr($term->term_id); ?>" <?php selected($_POST['yemek_turu'] ?? '', $term->term_id); ?>><?php echo esc_html($term->name); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <label>Porsiyon (Kişi Sayısı): <span style="color:#c72828">*</span>
+            <input type="number" name="porsiyon" min="1" max="50" required value="<?php echo esc_attr($_POST['porsiyon'] ?? ''); ?>" itemprop="recipeYield">
+        </label>
+        <label>Hazırlama Süresi (dakika): <span style="color:#c72828">*</span>
+            <input type="number" name="hazir_sure" min="1" max="1000" required value="<?php echo esc_attr($_POST['hazir_sure'] ?? ''); ?>" itemprop="prepTime">
+        </label>
+        <label>Pişirme Süresi (dakika): <span style="color:#c72828">*</span>
+            <input type="number" name="pisirme_sure" min="1" max="1000" required value="<?php echo esc_attr($_POST['pisirme_sure'] ?? ''); ?>" itemprop="cookTime">
+        </label>
+        <label>Malzemeler: <span style="color:#c72828">*</span>
+            <div id="malzeme-listesi">
+                <?php
+                $malzemeler = $_POST['malzemeler'] ?? [''];
+                foreach ($malzemeler as $malzeme) {
+                    echo '<input name="malzemeler[]" type="text" maxlength="100" required placeholder="Malzeme – miktar" value="'.esc_attr($malzeme).'" itemprop="recipeIngredient"><br>';
+                }
+                ?>
+            </div>
+            <button type="button" onclick="ekleMalzeme()" style="margin-top:5px;">+ Malzeme Ekle</button>
+        </label>
+        <label>Nasıl Yapılır? (adım adım): <span style="color:#c72828">*</span>
+            <div id="adim-listesi">
+                <?php
+                $adimlar = $_POST['adimlar'] ?? [''];
+                foreach ($adimlar as $adim) {
+                    echo '<input name="adimlar[]" type="text" maxlength="250" required placeholder="Adım – fiil ile başla" value="'.esc_attr($adim).'" itemprop="recipeInstructions"><br>';
+                }
+                ?>
+            </div>
+            <button type="button" onclick="ekleAdim()" style="margin-top:5px;">+ Adım Ekle</button>
+        </label>
+        <label>Püf Noktası / Servis Önerisi:
+            <textarea name="puf" maxlength="500"><?php echo esc_textarea($_POST['puf'] ?? ''); ?></textarea>
+        </label>
+        <label>Video Linki (varsa):
+            <input type="url" name="video" placeholder="YouTube/Instagram URL" value="<?php echo esc_attr($_POST['video'] ?? ''); ?>">
+        </label>
+        <label>Tarif Görseli:
+            <input type="file" name="tarif_gorsel" accept="image/*">
+        </label>
+        <label>Zorluk Derecesi: <span style="color:#c72828">*</span>
+            <select name="zorluk" required>
+                <option value="">Seçiniz</option>
+                <option value="Kolay" <?php selected($_POST['zorluk'] ?? '', 'Kolay'); ?>>Kolay</option>
+                <option value="Orta" <?php selected($_POST['zorluk'] ?? '', 'Orta'); ?>>Orta</option>
+                <option value="Zor" <?php selected($_POST['zorluk'] ?? '', 'Zor'); ?>>Zor</option>
+            </select>
+        </label>
+        <button type="submit" name="ys_tarif_gonder">Tarifi Gönder</button>
+    </form>
+    <script>
+    function ekleMalzeme() {
+        var d = document.getElementById('malzeme-listesi');
+        var inp = document.createElement('input');
+        inp.type='text'; inp.name='malzemeler[]'; inp.maxLength=100; inp.required=true; inp.placeholder="Malzeme – miktar";
+        d.appendChild(inp); d.appendChild(document.createElement('br'));
+    }
+    function ekleAdim() {
+        var d = document.getElementById('adim-listesi');
+        var inp = document.createElement('input');
+        inp.type='text'; inp.name='adimlar[]'; inp.maxLength=250; inp.required=true; inp.placeholder="Adım – fiil ile başla";
+        d.appendChild(inp); d.appendChild(document.createElement('br'));
+    }
+    </script>
+    <style>
+    .tarif-form input[type=text], .tarif-form input[type=number],
+    .tarif-form input[type=url], .tarif-form textarea, .tarif-form select {
+        width: 100%; max-width: 480px; padding: 7px; margin-bottom: 8px; border: 1px solid #bbb; border-radius: 6px;
+    }
+    .tarif-form label { font-weight: 500; display: block; margin-bottom: 12px;}
+    .form-error {color:#b31c1c;background:#ffeaea;padding:8px 13px;border-radius:8px;margin: 6px 0 10px 0;}
+    .form-success {color:#15811a;background:#e9ffea;padding:8px 13px;border-radius:8px;margin: 6px 0 10px 0;}
+    </style>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('tarif_ekle', 'tarif_ekle_schema_shortcode');
+
+// Tarif detayları meta kutusu
+function ys_tarif_detay_meta_box() {
+    add_meta_box('ys_tarif_detay', 'Tarif Detayları', 'ys_tarif_detay_icerik', 'tarif', 'normal', 'high');
+}
+add_action('add_meta_boxes', 'ys_tarif_detay_meta_box');
+
+function ys_tarif_detay_icerik($post) {
+    $aciklama = get_post_meta($post->ID, 'tarif_aciklama', true);
+    $porsiyon = get_post_meta($post->ID, 'porsiyon', true);
+    $hazir_sure = get_post_meta($post->ID, 'hazir_sure', true);
+    $pisirme_sure = get_post_meta($post->ID, 'pisirme_sure', true);
+    $malzemeler = get_post_meta($post->ID, 'malzemeler', true);
+    $adimlar = get_post_meta($post->ID, 'adimlar', true);
+    $puf = get_post_meta($post->ID, 'puf', true);
+    $video = get_post_meta($post->ID, 'video', true);
+    $zorluk = get_post_meta($post->ID, 'zorluk', true);
+
+    // Malzemeler ve adımlar dizi olarak kaydedildiyse
+    if (is_array($malzemeler)) $malzemeler = implode("\n", $malzemeler);
+    if (is_array($adimlar)) $adimlar = implode("\n", $adimlar);
+
+    ?>
+    <label><strong>Tarif Açıklaması:</strong></label>
+    <textarea name="ys_tarif_aciklama" rows="2" style="width:100%;"><?php echo esc_textarea($aciklama); ?></textarea><br><br>
+    <label><strong>Porsiyon:</strong></label>
+    <input type="number" name="ys_porsiyon" value="<?php echo esc_attr($porsiyon); ?>" min="1" max="50" style="width:100px;"><br><br>
+    <label><strong>Hazırlama Süresi (dakika):</strong></label>
+    <input type="number" name="ys_hazir_sure" value="<?php echo esc_attr($hazir_sure); ?>" min="1" max="1000" style="width:100px;"><br><br>
+    <label><strong>Pişirme Süresi (dakika):</strong></label>
+    <input type="number" name="ys_pisirme_sure" value="<?php echo esc_attr($pisirme_sure); ?>" min="1" max="1000" style="width:100px;"><br><br>
+    <label><strong>Malzemeler (her satıra bir malzeme):</strong></label>
+    <textarea name="ys_malzemeler" rows="4" style="width:100%;"><?php echo esc_textarea($malzemeler); ?></textarea><br><br>
+    <label><strong>Adımlar (her satıra bir adım):</strong></label>
+    <textarea name="ys_adimlar" rows="5" style="width:100%;"><?php echo esc_textarea($adimlar); ?></textarea><br><br>
+    <label><strong>Püf Noktası / Servis Önerisi:</strong></label>
+    <textarea name="ys_puf" rows="2" style="width:100%;"><?php echo esc_textarea($puf); ?></textarea><br><br>
+    <label><strong>Video Linki:</strong></label>
+    <input type="url" name="ys_video" value="<?php echo esc_attr($video); ?>" style="width:100%;"><br><br>
+    <label><strong>Zorluk:</strong></label>
+    <select name="ys_zorluk">
+      <option value="Kolay" <?php selected($zorluk, 'Kolay'); ?>>Kolay</option>
+      <option value="Orta" <?php selected($zorluk, 'Orta'); ?>>Orta</option>
+      <option value="Zor" <?php selected($zorluk, 'Zor'); ?>>Zor</option>
+    </select><br><br>
+    <?php
+}
+
+// Kaydetme işlemi
+function ys_tarif_detay_kaydet($post_id) {
+    if (isset($_POST['ys_tarif_aciklama'])) {
+        update_post_meta($post_id, 'tarif_aciklama', sanitize_textarea_field($_POST['ys_tarif_aciklama']));
+    }
+    if (isset($_POST['ys_porsiyon'])) {
+        update_post_meta($post_id, 'porsiyon', intval($_POST['ys_porsiyon']));
+    }
+    if (isset($_POST['ys_hazir_sure'])) {
+        update_post_meta($post_id, 'hazir_sure', intval($_POST['ys_hazir_sure']));
+    }
+    if (isset($_POST['ys_pisirme_sure'])) {
+        update_post_meta($post_id, 'pisirme_sure', intval($_POST['ys_pisirme_sure']));
+    }
+    if (isset($_POST['ys_malzemeler'])) {
+        // Satırlara ayırıp dizi olarak kaydediyoruz
+        $malzemeler = array_filter(array_map('trim', explode("\n", $_POST['ys_malzemeler'])));
+        update_post_meta($post_id, 'malzemeler', $malzemeler);
+    }
+    if (isset($_POST['ys_adimlar'])) {
+        $adimlar = array_filter(array_map('trim', explode("\n", $_POST['ys_adimlar'])));
+        update_post_meta($post_id, 'adimlar', $adimlar);
+    }
+    if (isset($_POST['ys_puf'])) {
+        update_post_meta($post_id, 'puf', sanitize_textarea_field($_POST['ys_puf']));
+    }
+    if (isset($_POST['ys_video'])) {
+        update_post_meta($post_id, 'video', esc_url_raw($_POST['ys_video']));
+    }
+    if (isset($_POST['ys_zorluk'])) {
+        update_post_meta($post_id, 'zorluk', sanitize_text_field($_POST['ys_zorluk']));
+    }
+}
+add_action('save_post_tarif', 'ys_tarif_detay_kaydet');
+
+// Profil Düzenleme Shortcode
+function ys_profil_duzenle_shortcode() {
+    if (!is_user_logged_in()) {
+        return '<p>Profilinizi düzenlemek için giriş yapmalısınız.</p>';
+    }
+    $user_id = get_current_user_id();
+    $user = get_userdata($user_id);
+    $msg = '';
+
+    // Profil güncelleme işlemi
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ys_profil_guncelle'])) {
+        $display_name = sanitize_text_field($_POST['display_name']);
+        $bio = sanitize_textarea_field($_POST['description']);
+
+        wp_update_user([
+            'ID' => $user_id,
+            'display_name' => $display_name,
+            'description' => $bio
+        ]);
+
+        // Profil fotoğrafı yükleme
+        if (!empty($_FILES['profil_foto']['name'])) {
+            require_once(ABSPATH . 'wp-admin/includes/file.php');
+            require_once(ABSPATH . 'wp-admin/includes/image.php');
+            require_once(ABSPATH . 'wp-admin/includes/media.php');
+            $attachment_id = media_handle_upload('profil_foto', 0);
+            if (!is_wp_error($attachment_id)) {
+                update_user_meta($user_id, 'profil_foto', $attachment_id);
+            }
+        }
+        $msg = '<div class="form-success">Profiliniz güncellendi.</div>';
+        $user = get_userdata($user_id);
+    }
+
+    // Şifre değiştirme işlemi
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ys_sifre_degistir'])) {
+        $pass1 = $_POST['pass1'];
+        $pass2 = $_POST['pass2'];
+        if ($pass1 && $pass1 === $pass2 && strlen($pass1) >= 6) {
+            wp_set_password($pass1, $user_id);
+            $msg = '<div class="form-success">Şifreniz güncellendi.</div>';
+        } else {
+            $msg = '<div class="form-error">Şifreler eşleşmeli ve en az 6 karakter olmalı.</div>';
+        }
+    }
+
+    // E-posta değiştirme işlemi
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ys_email_degistir'])) {
+        $email = sanitize_email($_POST['email']);
+        if (is_email($email)) {
+            wp_update_user(['ID' => $user_id, 'user_email' => $email]);
+            $msg = '<div class="form-success">E-posta adresiniz güncellendi.</div>';
+        } else {
+            $msg = '<div class="form-error">Geçerli bir e-posta giriniz.</div>';
+        }
+    }
+
+    // Kullanıcı adı değiştirme işlemi (sadece bir kez ve admin değilse)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ys_kadi_degistir'])) {
+        $kadi = sanitize_user($_POST['user_login']);
+        if ($kadi && !username_exists($kadi) && $user->user_login !== $kadi) {
+                <input type="file" name="profil_foto" accept="image/*">
+            </div>
+            <label>Görünen Adınız:
+                <input type="text" name="display_name" value="<?php echo esc_attr($user->display_name); ?>" required>
+            </label>
+            <label>Hakkınızda (bio):
+                <textarea name="description" rows="3"><?php echo esc_textarea($user->description); ?></textarea>
+            </label>
+            <button type="submit" name="ys_profil_guncelle">Profili Güncelle</button>
+        </form>
+
+        <hr class="profil-hr">
+
+        <form method="post" class="profil-form">
+            <h3>Şifre Değiştir</h3>
+            <input type="password" name="pass1" placeholder="Yeni Şifre" required>
+            <input type="password" name="pass2" placeholder="Yeni Şifre (Tekrar)" required>
+            <button type="submit" name="ys_sifre_degistir">Şifreyi Güncelle</button>
+        </form>
+
+        <hr class="profil-hr">
+
+        <form method="post" class="profil-form">
+            <h3>E-posta Değiştir</h3>
+            <input type="email" name="email" value="<?php echo esc_attr($user->user_email); ?>" required>
+            <button type="submit" name="ys_email_degistir">E-posta Güncelle</button>
+        </form>
+
+        <hr class="profil-hr">
+
+        <form method="post" class="profil-form">
+            <h3>Kullanıcı Adı Değiştir</h3>
+            <input type="text" name="user_login" value="<?php echo esc_attr($user->user_login); ?>" required>
+            <button type="submit" name="ys_kadi_degistir">Kullanıcı Adı Güncelle</button>
+        </form>
+
+        <hr class="profil-hr">
+
+        <div class="profil-form">
+            <h3>Hesap Ayarları</h3>
+            <p>Buraya ek ayarlar ekleyebilirsiniz.</p>
+        </div>
+
+        <div class="profil-form">
+            <h3>Sosyal Hesaplar</h3>
+            <p>Buraya sosyal medya bağlantı alanları ekleyebilirsiniz.</p>
+        </div>
+
+        <div class="profil-form">
+            <h3>İletişim Bilgileri</h3>
+            <p>Buraya telefon, adres gibi iletişim alanları ekleyebilirsiniz.</p>
+        </div>
+
+        <div class="profil-form">
+            <h3>Bildirim Ayarları</h3>
+            <p>Buraya bildirim tercihleri ekleyebilirsiniz.</p>
+        </div>
+
+        <div class="profil-form">
+            <h3>Masaüstü Bildirim Ayarları</h3>
+            <p>Buraya masaüstü bildirim seçenekleri ekleyebilirsiniz.</p>
+        </div>
+
+        <div class="profil-form">
+            <h3>E-posta Bildirim Ayarları</h3>
+            <p>Buraya e-posta bildirim tercihleri ekleyebilirsiniz.</p>
+        </div>
+    </div>
+    <style>
+    .profil-duzenle-panel { max-width: 420px; margin: 0 auto; }
+    .profil-duzenle-panel h2 { text-align:center; color:#c72828; margin-bottom:18px; }
+    .profil-duzenle-panel h3 { margin:18px 0 10px 0; color:#a41c1c; font-size:1.08em; }
+    .profil-form { margin-bottom: 10px; }
+    .profil-form label { display:block; margin-bottom:8px; font-weight:500; }
+    .profil-form input[type="text"], .profil-form input[type="email"], .profil-form input[type="password"], .profil-form textarea {
+        width:100%; max-width:350px; padding:7px; margin-bottom:8px; border:1px solid #bbb; border-radius:6px;
+    }
+    .profil-form button { background:#c72828; color:#fff; border:none; padding:8px 22px; border-radius:6px; font-size:1em; cursor:pointer; }
+    .profil-form button:hover { background:#a41c1c; }
+    .profil-foto-blok { text-align:center; margin-bottom:14px; }
+    .profil-foto-blok input[type="file"] { margin-top:8px; }
+    .profil-hr { border:0; border-top:1px solid #eee; margin:18px 0; }
+    .form-success {color:#15811a;background:#e9ffea;padding:8px 13px;border-radius:8px;margin: 6px 0 10px 0;}
+    .form-error {color:#b31c1c;background:#ffeaea;padding:8px 13px;border-radius:8px;margin: 6px 0 10px 0;}
+    </style>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('profil_duzenle', 'ys_profil_duzenle_shortcode');
+
+// Kullanıcı avatar URL'sini alma
+function ys_get_user_avatar_url($user_id, $size = 96) {
+    $profil_foto_id = get_user_meta($user_id, 'profil_foto', true);
+    if ($profil_foto_id) {
+        $url = wp_get_attachment_image_url($profil_foto_id, [$size, $size]);
+        if ($url) return $url;
+    }
+    $user = get_userdata($user_id);
+    if ($user && !empty($user->user_email)) {
+        return 'https://www.gravatar.com/avatar/' . md5(strtolower(trim($user->user_email))) . '?s=' . $size . '&d=mp';
+    }
+    return 'https://www.gravatar.com/avatar/?s=' . $size . '&d=mp';
+}
+
+// Avatar URL'sini filtreleme
+add_filter('get_avatar_url', function($url, $id_or_email, $args) {
+    $user_id = false;
+
+    if (is_numeric($id_or_email)) {
+        $user_id = intval($id_or_email);
+    } elseif (is_object($id_or_email) && isset($id_or_email->user_id)) {
+        $user_id = intval($id_or_email->user_id);
+    } elseif (is_string($id_or_email)) {
+        $user = get_user_by('email', $id_or_email);
+        if ($user && isset($user->ID)) {
+            $user_id = $user->ID;
+        }
+    }
+
+    if ($user_id) {
+        $custom = ys_get_user_avatar_url($user_id, $args['size']);
+        if ($custom) return $custom;
+    }
+    return $url;
+}, 10, 3);
+
+// Tarif Yayınlama Bildirimi
+add_action('transition_post_status', function($new_status, $old_status, $post) {
+    if ($post->post_type === 'tarif' && $old_status === 'pending' && $new_status === 'publish') {
+        $author = get_userdata($post->post_author);
+        if ($author && !empty($author->user_email)) {
+            $subject = 'Tarifiniz Yayınlandı!';
+            $message = 'Merhaba ' . esc_html($author->display_name) . ",\n\n"
+                . '"' . esc_html($post->post_title) . '" başlıklı tarifiniz editör onayıyla yayına alındı. Teşekkürler!';
+            wp_mail($author->user_email, $subject, $message);
+        }
+    }
+}, 10, 3);
+
+// Yorum Bildirimi
+add_action('comment_post', function($comment_ID, $comment_approved) {
+    if ($comment_approved !== 1) return;
+    $comment = get_comment($comment_ID);
+    if ($comment->comment_parent) {
+        $parent = get_comment($comment->comment_parent);
+        if ($parent && $parent->user_id) {
+            $user = get_userdata($parent->user_id);
+            if ($user && !empty($user->user_email)) {
+                $subject = 'Tarifine Yorum Geldi!';
+                $message = 'Merhaba ' . esc_html($user->display_name) . ",\n\n"
+                    . 'Tarifine yeni bir yanıt geldi: "' . esc_html($comment->comment_content) . '"';
+                wp_mail($user->user_email, $subject, $message);
+            }
+        }
+    }
+}, 10, 2);
+
+// Yorum formuna yıldız puan ekle
+add_filter('comment_form_fields', function($fields) {
+    $puan_html = '<p class="comment-form-rating"><label for="yorum_puani">Puanınız: </label>
+    <span class="yorum-starlar">';
+    for($i=1;$i<=5;$i++) {
+        $puan_html .= '<input type="radio" name="yorum_puani" id="yorum_puani'.$i.'" value="'.$i.'" style="display:none;">
+        <label for="yorum_puani'.$i.'" style="font-size:1.5em;cursor:pointer;color:#ffc107;">&#9733;</label>';
+    }
+    $puan_html .= '</span></p>';
+    // Yorum alanından önce ekle
+    $fields = array_merge(['yorum_puani'=>$puan_html], $fields);
+    return $fields;
+});
+
+// Yorum puanını kaydet
+add_action('comment_post', function($comment_id) {
+    if(isset($_POST['yorum_puani'])) {
+        $puan = intval($_POST['yorum_puani']);
+        if($puan >= 1 && $puan <= 5) {
+            add_comment_meta($comment_id, 'yorum_puani', $puan);
+        }
+    }
+});
+
+// Yorum puanını göster
+add_filter('comment_text', function($comment_text, $comment) {
+    $puan = get_comment_meta($comment->comment_ID, 'yorum_puani', true);
+    if($puan) {
+        $puan_html = '<span class="yorum-puan">';
+        for($i=1;$i<=5;$i++) {
+            $puan_html .= '<span style="color:'.($i<=$puan?'#ffc107':'#ccc').';font-size:1.2em;">&#9733;</span>';
+        }
+        $comment_text .= $puan_html;
+    }
+    return $comment_text;
+}, 10, 2);
+
+// Canlı Arama Sistemi
+add_action('wp_ajax_canli_arama', 'canli_arama_ajax');
+add_action('wp_ajax_nopriv_canli_arama', 'canli_arama_ajax');
+function canli_arama_ajax() {
+    $aranan = isset($_POST['q']) ? sanitize_text_field($_POST['q']) : '';
+    if(strlen($aranan) < 2) exit;
+    $args = array(
+        's' => $aranan,
+        'post_type' => array('post', 'tarif'),
+        'posts_per_page' => 6,
+        'post_status' => 'publish'
+    );
+    $query = new WP_Query($args);
+    if($query->have_posts()) {
+        echo '<ul style="margin:0;padding:0;list-style:none;">';
+        while($query->have_posts()) {
+            $query->the_post();
+            echo '<li style="border-bottom:1px solid #eee;"><a href="'.get_permalink().'">'.get_the_title().'</a></li>';
+        }
+        echo '</ul>';
+    } else {
+        echo '<div style="padding:8px 12px;color:#888;">Sonuç bulunamadı.</div>';
+    }
+    wp_die();
+}
+
+// PROFİLİM SEKME SİSTEMİ [profilim] kısa kodu
+function profilim_sayfasi_shortcode() {
+    if (!is_user_logged_in()) {
+        return '<p>Profilinizi görüntülemek için giriş yapmalısınız.</p>';
+    }
+    ob_start();
+    ?>
+    <div class="profilim-tabs">
+        <ul class="profilim-tab-menu">
+            <li class="active" data-tab="profil"><span class="tab-ikon">👤</span> Profil</li>
+            <li data-tab="tarifler"><span class="tab-ikon">📋</span> Gönderdiğim Tarifler</li>
+            <li data-tab="taslaklar"><span class="tab-ikon">📝</span> Taslak Tariflerim</li>
+            <li data-tab="bendedim"><span class="tab-ikon">🍽️</span> Ben de Yaptım</li>
+            <li data-tab="defter"><span class="tab-ikon">📖</span> Tarif Defteri</li>
+            <li data-tab="yorumlar"><span class="tab-ikon">💬</span> Yorumlarım</li>
+        </ul>
+        <div class="profilim-tab-content active" id="profil">
+            <?php echo do_shortcode('[profil_duzenle]'); ?>
+        </div>
+        <div class="profilim-tab-content" id="tarifler">
+            <?php echo do_shortcode('[kendi_tariflerim]'); ?>
+        </div>
+        <div class="profilim-tab-content" id="taslaklar">
+            <div class="profilim-bos">Taslak tarifleriniz burada listelenecek.</div>
+        </div>
+        <div class="profilim-tab-content" id="bendedim">
+            <div class="profilim-bos">Ben de Yaptım bölümü (isteğe bağlı kısa kod eklenebilir).</div>
+        </div>
+        <div class="profilim-tab-content" id="defter">
+            <div class="profilim-bos">Tarif Defteri bölümü (isteğe bağlı kısa kod eklenebilir).</div>
+        </div>
+        <div class="profilim-tab-content" id="yorumlar">
+            <div class="profilim-bos">Yorumlarım bölümü (isteğe bağlı kısa kod eklenebilir).</div>
+        </div>
+    </div>
+    <style>
+    .profilim-tabs {
+        max-width: 700px;
+        margin: 40px auto;
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 4px 24px #0002;
+        overflow: hidden;
+    }
+    .profilim-tab-menu {
+        display: flex;
+        border-bottom: 2px solid #f3dede;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        background: #f7e7e7;
+    }
+    .profilim-tab-menu li {
+        flex: 1;
+        text-align: center;
+        padding: 18px 0 14px 0;
+        cursor: pointer;
+        font-weight: 600;
+        color: #c72828;
+        border-bottom: 3px solid transparent;
+        transition: all .2s;
+        font-size: 1.08em;
+        letter-spacing: 0.01em;
+        position: relative;
+        background: none;
+    }
+    .profilim-tab-menu li .tab-ikon {
+        font-size: 1.2em;
+        margin-right: 6px;
+        vertical-align: middle;
+    }
+    .profilim-tab-menu li.active {
+        border-bottom: 3px solid #c72828;
+        background: #fff;
+        color: #a41c1c;
+        z-index: 2;
+    }
+    .profilim-tab-menu li:hover:not(.active) {
+        background: #fbeaea;
+        color: #a41c1c;
+    }
+    .profilim-tab-content {
+        display: none;
+        padding: 32px 28px 28px 28px;
+        min-height: 220px;
+        animation: fadeInTab .3s;
+    }
+    .profilim-tab-content.active {
+        display: block;
+    }
+    .profilim-bos {
+        color: #888;
+        background: #f7f7f7;
+        border-radius: 8px;
+        padding: 32px 0;
+        text-align: center;
+        font-size: 1.08em;
+    }
+    @keyframes fadeInTab {
+        from { opacity: 0; transform: translateY(20px);}
+        to { opacity: 1; transform: none;}
+    }
+    @media (max-width: 800px) {
+        .profilim-tabs { max-width: 98vw; }
+        .profilim-tab-content { padding: 18px 8px 18px 8px; }
+        .profilim-tab-menu li { font-size: 0.98em; padding: 13px 0 10px 0; }
+    }
+    @media (max-width: 500px) {
+        .profilim-tab-menu { flex-direction: column; }
+        .profilim-tab-menu li { border-bottom: 1.5px solid #f3dede; border-right: none; }
+        .profilim-tab-menu li.active { border-bottom: 3px solid #c72828; }
+    }
+    </style>
+    <script>
+    document.addEventListener('DOMContentLoaded',function(){
+        document.querySelectorAll('.profilim-tab-menu li').forEach(function(tab){
+            tab.addEventListener('click',function(){
+                document.querySelectorAll('.profilim-tab-menu li').forEach(function(t){t.classList.remove('active');});
+                document.querySelectorAll('.profilim-tab-content').forEach(function(c){c.classList.remove('active');});
+                tab.classList.add('active');
+                document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
+            });
+        });
+    });
+    </script>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('profilim', 'profilim_sayfasi_shortcode');
+
+// === KAPSAMLI İSTATİSTİKLER: Admin Panelinde Tarif, Kullanıcı, Favori, Görüntülenme ===
+add_action('admin_menu', function() {
+    add_menu_page(
+        'Yemek Sözlük İstatistikler',
+        'YS İstatistikler',
+        'manage_options',
+        'ys_istatistikler',
+        'ys_istatistikler_admin_sayfa',
+        'dashicons-chart-bar',
+        3
+    );
+});
+
+function ys_istatistikler_admin_sayfa() {
+    global $wpdb;
+
+    // Toplam tarif sayısı
+    $tarif_sayisi = wp_count_posts('tarif')->publish;
+
+    // Toplam kullanıcı sayısı
+    $kullanici_sayisi = count_users()['total_users'];
+
+    // Toplam favori (tüm kullanıcıların favori tarif toplamı)
+    $favori_toplam = 0;
+    $usermeta = $wpdb->get_results("SELECT meta_value FROM $wpdb->usermeta WHERE meta_key = 'ys_favs'");
+    foreach ($usermeta as $row) {
+        $favs = maybe_unserialize($row->meta_value);
+        if (is_array($favs)) $favori_toplam += count($favs);
+    }
+
+    // Tarif görüntülenme (her tarifte 'views' meta varsa)
+    $goruntulenme = $wpdb->get_var("SELECT SUM(meta_value+0) FROM $wpdb->postmeta WHERE meta_key = 'views'");
+    if (!$goruntulenme) $goruntulenme = 0;
+
+    // Son 7 gün eklenen tarifler
+    $son7gun = $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM $wpdb->posts WHERE post_type='tarif' AND post_status='publish' AND post_date > %s",
+        date('Y-m-d H:i:s', strtotime('-7 days'))
+    ));
+
+    // En çok favorilenen 5 tarif
+    $favori_sayilari = [];
+    foreach ($usermeta as $row) {
+        $favs = maybe_unserialize($row->meta_value);
+        if (is_array($favs)) {
+            foreach ($favs as $pid) {
+                if (!isset($favori_sayilari[$pid])) $favori_sayilari[$pid] = 0;
+                $favori_sayilari[$pid]++;
+            }
+        }
+    }
+    arsort($favori_sayilari);
+    $en_cok_favori = array_slice($favori_sayilari, 0, 5, true);
+
+    ?>
+    <div class="wrap">
+        <h1>Yemek Sözlük İstatistikler</h1>
+        <table class="widefat" style="max-width:500px;">
+            <tr><th>Toplam Tarif</th><td><?php echo intval($tarif_sayisi); ?></td></tr>
+            <tr><th>Toplam Kullanıcı</th><td><?php echo intval($kullanici_sayisi); ?></td></tr>
+            <tr><th>Toplam Favori</th><td><?php echo intval($favori_toplam); ?></td></tr>
+            <tr><th>Toplam Görüntülenme</th><td><?php echo intval($goruntulenme); ?></td></tr>
+            <tr><th>Son 7 Gün Eklenen Tarif</th><td><?php echo intval($son7gun); ?></td></tr>
+        </table>
+        <h2 style="margin-top:30px;">En Çok Favorilenen 5 Tarif</h2>
+        <table class="widefat" style="max-width:600px;">
+            <tr><th>Tarif</th><th>Favori Sayısı</th></tr>
+            <?php
+            if ($en_cok_favori) {
+                foreach ($en_cok_favori as $pid => $adet) {
+                    $title = get_the_title($pid);
+                    $link = get_edit_post_link($pid);
+                    echo '<tr><td><a href="'.esc_url($link).'">'.esc_html($title).'</a></td><td>'.intval($adet).'</td></tr>';
+                }
+            } else {
+                echo '<tr><td colspan="2">Favorilenen tarif yok.</td></tr>';
+            }
+            ?>
+        </table>
+        <p style="margin-top:18px;color:#888;">Daha fazla detay için geliştirme yapılabilir.</p>
+    </div>
+    <?php
+}
+
+// Tarifler için AJAX yükleme
+add_action('wp_enqueue_scripts', function() {
+    if (is_post_type_archive('tarif')) {
+        wp_enqueue_script('tarifler-ajax', get_template_directory_uri() . '/js/tarifler-ajax.js', [], false, true);
+        wp_localize_script('tarifler-ajax', 'ajaxurl', admin_url('admin-ajax.php'));
+    }
+});
+
+add_action('wp_ajax_tarifleri_getir', 'tarifleri_getir_callback');
+add_action('wp_ajax_nopriv_tarifleri_getir', 'tarifleri_getir_callback');
+function tarifleri_getir_callback() {
+    $sayfa = isset($_GET['sayfa']) ? intval($_GET['sayfa']) : 1;
+    $args = [
+        'post_type' => 'tarif',
+        'posts_per_page' => 12,
+        'paged' => $sayfa
+    ];
+    $tarif_query = new WP_Query($args);
+    if ($tarif_query->have_posts()) :
+        while ($tarif_query->have_posts()) : $tarif_query->the_post(); ?>
+            <div class="tarif-karti">
+                <a href="<?php the_permalink(); ?>">
+                    <div class="tarif-gorsel">
+                        <?php if (has_post_thumbnail()) the_post_thumbnail('medium'); ?>
+                    </div>
+                    <div class="tarif-bilgi">
+                        <h3><?php the_title(); ?></h3>
+                        <p><?php echo wp_trim_words(get_the_excerpt(), 15); ?></p>
+                        <span class="tarif-sure"><?php echo get_post_meta(get_the_ID(), 'sure', true); ?> dk</span>
+                    </div>
+                </a>
+            </div>
+        <?php endwhile;
+    endif;
+    wp_reset_postdata();
+    wp_die();
+}
+
+// Kategoriler menü öğesi ekleme
+add_action('admin_menu', function() {
+    // Sadece bir kez ekle, ismi "Kategoriler" ve category taksonomisine yönlendir
+    add_submenu_page(
+        'edit.php?post_type=tarif', // Parent slug
+        'Kategoriler',              // Sayfa başlığı
+        'Kategoriler',              // Menüde görünen ad
+        'manage_categories',        // Yetki
+        'edit-tags.php?taxonomy=category&post_type=tarif' // Hedef link
+    );
+});
+
+// Zorluk Seviyesi Meta Kutusu
+add_action('add_meta_boxes', function() {
+    add_meta_box('tarif_zorluk', 'Zorluk Seviyesi', function($post) {
+        $zorluk = get_post_meta($post->ID, 'zorluk', true);
+        ?>
+        <select name="tarif_zorluk" style="width:100%;">
+            <option value="">Seçiniz</option>
+            <option value="Kolay" <?php selected($zorluk, 'Kolay'); ?>>Kolay</option>
+            <option value="Orta" <?php selected($zorluk, 'Orta'); ?>>Orta</option>
+            <option value="Zor" <?php selected($zorluk, 'Zor'); ?>>Zor</option>
+        </select>
+        <?php
+    }, 'tarif', 'side');
+});
+add_action('save_post_tarif', function($post_id) {
+    if (isset($_POST['tarif_zorluk'])) {
+        update_post_meta($post_id, 'zorluk', sanitize_text_field($_POST['tarif_zorluk']));
+    }
+});
+
+// Tarif detayları için zorluk seviyesi ekleme
+add_action('the_content', function($content) {
+    if (is_singular('tarif')) {
+        $zorluk = get_post_meta(get_the_ID(), 'zorluk', true);
+        $zorluk_html = '<div class="tarif-detay">
+            <!-- Diğer detaylar -->
+            <span class="tarif-zorluk">';
+        if ($zorluk) $zorluk_html .= 'Zorluk: ' . esc_html($zorluk);
+        $zorluk_html .= '</span></div>';
+        $content .= $zorluk_html;
+    }
+    return $content;
+});
+
+// Tarif Oylama Sistemi
+add_action('wp_ajax_tarif_oyla', 'tarif_oyla_callback');
+add_action('wp_ajax_nopriv_tarif_oyla', 'tarif_oyla_callback');
+function tarif_oyla_callback() {
+    $post_id = intval($_POST['post_id']);
+    $puan = intval($_POST['puan']);
+    if ($post_id && $puan >= 1 && $puan <= 5) {
+        $oylar = get_post_meta($post_id, 'oylar', true);
+        if (!is_array($oylar)) $oylar = [];
+        $oylar[] = $puan;
+        update_post_meta($post_id, 'oylar', $oylar);
+        $ortalama = array_sum($oylar) / count($oylar);
+        wp_send_json_success(['ortalama'=>round($ortalama,1), 'adet'=>count($oylar)]);
+    }
+    wp_send_json_error();
+}
+
+
